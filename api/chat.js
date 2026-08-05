@@ -19,8 +19,7 @@ function cosineSimilarity(a, b) {
 }
 
 async function embedQuery(text) {
-  // Endpoint actualizado del router de Hugging Face
-  const url = `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}`;
+  const url = `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`;
   const resp = await fetch(url, {
     method: "POST",
     headers: {
