@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 
-const HF_TOKEN = process.env.HF_TOKEN;          
-const GEMINI_KEY = process.env.GEMINI_API_KEY;  
+const HF_TOKEN = process.env.HF_TOKEN;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
 
 const indexPath = path.join(process.cwd(), "knowledge_index.json");
@@ -19,17 +19,23 @@ function cosineSimilarity(a, b) {
 }
 
 async function embedQuery(text) {
-  const resp = await fetch(
-    `https://api-inference.huggingface.co/pipeline/feature-extraction/${EMBED_MODEL}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${HF_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
-    }
-  );
+  // Endpoint actualizado del router de Hugging Face
+  const url = `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${HF_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error("Error en Hugging Face API:", errText);
+    throw new Error(`HF API error: ${resp.status}`);
+  }
+
   const data = await resp.json();
   if (Array.isArray(data[0])) {
     const n = data.length, dim = data[0].length;
@@ -50,7 +56,7 @@ function topChunks(queryEmbedding, k = 4) {
 async function askGemini(question, contextChunks) {
   const context = contextChunks.map((c) => `- ${c.text}`).join("\n");
 
-  const systemPrompt = `Eres el asistente virtual oficial de Tyria, producto y servicio creado por los Fenixios.
+  const systemPrompt = `Eres el asistente virtual oficial de Tyria, creado por los Fenixios.
 Responde SOLO usando la información del CONTEXTO de abajo. Si la respuesta no está
 en el contexto, di honestamente que no tienes esa información y sugiere contactar
 al equipo directamente. Responde de forma breve, clara y amable, en español.
@@ -68,6 +74,13 @@ ${context}`;
       }),
     }
   );
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error("Error en Gemini API:", errText);
+    throw new Error(`Gemini API error: ${resp.status}`);
+  }
+
   const data = await resp.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text
     ?? "Lo siento, no pude generar una respuesta en este momento.";
@@ -92,7 +105,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ answer });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Error interno" });
+    console.error("Error interno en handler:", err);
+    return res.status(500).json({ error: "Error interno", details: err.message });
   }
 }
