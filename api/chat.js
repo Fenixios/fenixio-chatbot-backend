@@ -2,8 +2,9 @@ import fs from "fs";
 import path from "path";
 
 const HF_TOKEN = process.env.HF_TOKEN;
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 const indexPath = path.join(process.cwd(), "knowledge_index.json");
 const KNOWLEDGE = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
@@ -52,7 +53,7 @@ function topChunks(queryEmbedding, k = 4) {
     .slice(0, k);
 }
 
-async function askGemini(question, contextChunks) {
+async function askGroq(question, contextChunks) {
   const context = contextChunks.map((c) => `- ${c.text}`).join("\n");
 
   const systemPrompt = `Eres el asistente virtual oficial de Tyria, creado por los Fenixios.
@@ -63,25 +64,29 @@ al equipo directamente. Responde de forma breve, clara y amable, en español.
 CONTEXTO:
 ${context}`;
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `${systemPrompt}\n\nPREGUNTA DEL USUARIO: ${question}` }] }],
-      }),
-    }
-  );
+  const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: question },
+      ],
+    }),
+  });
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error("Error en Gemini API:", errText);
-    throw new Error(`Gemini API error: ${resp.status}`);
+    console.error("Error en Groq API:", errText);
+    throw new Error(`Groq API error: ${resp.status}`);
   }
 
   const data = await resp.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text
+  return data?.choices?.[0]?.message?.content
     ?? "Lo siento, no pude generar una respuesta en este momento.";
 }
 
@@ -100,7 +105,7 @@ export default async function handler(req, res) {
 
     const queryEmbedding = await embedQuery(question);
     const relevant = topChunks(queryEmbedding);
-    const answer = await askGemini(question, relevant);
+    const answer = await askGroq(question, relevant);
 
     return res.status(200).json({ answer });
   } catch (err) {
