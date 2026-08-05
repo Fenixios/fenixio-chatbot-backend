@@ -72,6 +72,7 @@ ${context}`;
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
+      temperature: 0.2,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: question },
