@@ -1,5 +1,8 @@
 {
-  "name": "fenixio-chatbot-backend",
-  "version": "1.0.0",
+  "name": "tyria-chatbot-backend",
+  "version": "1.0.1",
   "type": "module"
+  "scripts": {
+    "build": "node scripts/build-index.js"
+  }
 }
