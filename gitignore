@@ -1,0 +1,4 @@
+# Se genera automáticamente en cada build de Vercel (ver scripts/build-index.js).
+# Ya no se sube a mano ni se guarda en el repositorio.
+knowledge_index.json
+node_modules/
