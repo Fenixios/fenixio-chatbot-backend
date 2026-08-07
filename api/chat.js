@@ -20,7 +20,7 @@ function cosineSimilarity(a, b) {
 }
 
 async function embedQuery(text) {
-  const url = `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`;
+  const url = `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
   const resp = await fetch(url, {
     method: "POST",
     headers: {
