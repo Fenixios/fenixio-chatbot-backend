@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
 
-const HF_TOKEN = process.env.HF_TOKEN;
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const HF_TOKEN = process.env.HF_TOKEN;      // clave de Hugging Face (embeddings)
+const GROQ_KEY = process.env.GROQ_API_KEY;  // clave del LLM (console.groq.com)
 const EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "llama-3.3-70b-versatile"; // modelo gratuito de Groq
 
+// Carga el índice UNA vez cuando la función arranca (no en cada petición)
 const indexPath = path.join(process.cwd(), "knowledge_index.json");
 const KNOWLEDGE = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
 
@@ -20,22 +21,17 @@ function cosineSimilarity(a, b) {
 }
 
 async function embedQuery(text) {
-  const url = `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${HF_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    console.error("Error en Hugging Face API:", errText);
-    throw new Error(`HF API error: ${resp.status}`);
-  }
-
+  const resp = await fetch(
+    `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${HF_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
+    }
+  );
   const data = await resp.json();
   if (Array.isArray(data[0])) {
     const n = data.length, dim = data[0].length;
@@ -64,15 +60,16 @@ al equipo directamente. Responde de forma breve, clara y amable, en español.
 CONTEXTO:
 ${context}`;
 
+  // Groq usa el mismo formato que la API de OpenAI: un arreglo de "messages"
+  // con roles "system" y "user", en vez del formato "contents" de Gemini.
   const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${GROQ_API_KEY}`,
+      Authorization: `Bearer ${GROQ_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
-      temperature: 0.2,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: question },
@@ -81,9 +78,8 @@ ${context}`;
   });
 
   if (!resp.ok) {
-    const errText = await resp.text();
-    console.error("Error en Groq API:", errText);
-    throw new Error(`Groq API error: ${resp.status}`);
+    console.error("Error de Groq:", resp.status, await resp.text());
+    return "Lo siento, no pude generar una respuesta en este momento.";
   }
 
   const data = await resp.json();
@@ -92,6 +88,7 @@ ${context}`;
 }
 
 export default async function handler(req, res) {
+  // CORS: permite que cualquier página llame a este endpoint
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -110,7 +107,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ answer });
   } catch (err) {
-    console.error("Error interno en handler:", err);
-    return res.status(500).json({ error: "Error interno", details: err.message });
+    console.error(err);
+    return res.status(500).json({ error: "Error interno" });
   }
 }
