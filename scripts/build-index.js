@@ -21,7 +21,7 @@ function loadChunks(filePath) {
 
 async function embed(text) {
   const resp = await fetch(
-    `https://api-inference.huggingface.co/pipeline/feature-extraction/${EMBED_MODEL}`,
+    `https://router.huggingface.co/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
     {
       method: "POST",
       headers: {
