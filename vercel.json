@@ -1,5 +1,8 @@
 {
   "functions": {
-    "api/chat.js": { "maxDuration": 15 }
+    "api/chat.js": {
+      "maxDuration": 15,
+      "includeFiles": "knowledge_index.json"
+    }
   }
 }
